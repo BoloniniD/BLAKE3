@@ -38,6 +38,7 @@ cfg_if::cfg_if! {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[repr(C)]
 pub enum Platform {
     Portable,
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

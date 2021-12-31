@@ -87,6 +87,7 @@ rayon = { version = "1.2.1", optional = true }
 cfg-if = "1.0.0"
 digest = { version = "0.9.0", optional = true }
 crypto-mac = { version = "0.11.0", optional = true }
+libc = "0.2.*"
 
 [dev-dependencies]
 hex = "0.4.2"
@@ -95,5 +96,9 @@ rand = "0.8.0"
 rand_chacha = "0.3.0"
 reference_impl = { path = "./reference_impl" }
 
+[lib]
+crate-type = ["staticlib"]
+
 [build-dependencies]
 cc = "1.0.4"
+cbindgen = "0.20.0"

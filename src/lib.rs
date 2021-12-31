@@ -122,6 +122,9 @@ use core::cmp;
 use core::fmt;
 use platform::{Platform, MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2};
 
+use std::ffi::{CString, CStr};
+use libc::c_char;
+
 /// The number of bytes in a [`Hash`](struct.Hash.html), 32.
 pub const OUT_LEN: usize = 32;
 
@@ -199,6 +202,7 @@ fn counter_high(counter: u64) -> u32 {
 /// [`Display`]: https://doc.rust-lang.org/std/fmt/trait.Display.html
 /// [`FromStr`]: https://doc.rust-lang.org/std/str/trait.FromStr.html
 #[derive(Clone, Copy, Hash)]
+#[repr(C)]
 pub struct Hash([u8; OUT_LEN]);
 
 impl Hash {
@@ -256,6 +260,50 @@ impl Hash {
         }
         Ok(Hash::from(hash_bytes))
     }
+}
+
+#[no_mangle]
+pub extern "C" fn to_hex_shim(obj: &Hash) -> *const c_char {
+    let hex_str = CString::new(obj.to_hex().as_str());
+    match hex_str {
+        Ok(c_str) => {
+            let ptr = c_str.as_ptr();
+            std::mem::forget(c_str);
+            ptr
+        }
+        Err(_) => {
+            return std::ptr::null();
+        }
+    }
+}
+
+//kek
+
+#[no_mangle]
+pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -> bool {
+    if hex_str.is_null() {
+        *res = Hash([0u8; 32]);
+        return false;
+    }
+    let hex_str_bytes = CStr::from_ptr(hex_str);
+    let hash_res = Hash::from_hex(hex_str_bytes.to_bytes());
+    match hash_res {
+        Ok(obj) => {
+            *res = Hash(*obj.as_bytes());
+            true
+        }
+        Err(_) => {
+            *res = Hash([0u8; 32]);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn as_bytes_shim(obj: &Hash) -> *mut u8 {
+    let st = CString::from_vec_unchecked(obj.as_bytes().to_vec());
+    let pointer = st.into_raw() as *mut u8;
+    return pointer;
 }
 
 impl From<[u8; OUT_LEN]> for Hash {
@@ -368,6 +416,7 @@ impl std::error::Error for HexError {}
 // setting the ROOT flag, any number of final output bytes. The Output struct
 // captures the state just prior to choosing between those two possibilities.
 #[derive(Clone)]
+#[repr(C)]
 struct Output {
     input_chaining_value: CVWords,
     block: [u8; 64],
@@ -1308,6 +1357,88 @@ impl Hasher {
     }
 }
 
+#[repr(C)]
+pub struct Hasher_shim {
+    hasher: *mut Hasher,
+}
+
+impl Hasher_shim {
+    pub fn new() -> Self {
+        let boxed_hasher = Box::new(Hasher::new());
+        let shim = Hasher_shim {
+            hasher: Box::into_raw(boxed_hasher),
+        };
+        shim
+    }
+
+    pub fn new_keyed(key: &[u8; KEY_LEN]) -> Self {
+        let boxed_hasher = Box::new(Hasher::new_keyed(key));
+        let shim = Hasher_shim {
+            hasher: Box::into_raw(boxed_hasher),
+        };
+        shim
+    }
+
+    pub fn new_derive_key(context: &str) -> Self {
+        let boxed_hasher = Box::new(Hasher::new_derive_key(context));
+        let shim = Hasher_shim {
+            hasher: Box::into_raw(boxed_hasher),
+        };
+        shim
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn new_hasher() -> Hasher_shim {
+    Hasher_shim::new()
+}
+
+#[no_mangle]
+pub extern "C" fn new_keyed_shim(key: &[u8; KEY_LEN]) -> Hasher_shim {
+    Hasher_shim::new_keyed(key)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn new_derive_key_shim(context: *const c_char) -> Hasher_shim {
+    let cont = CStr::from_ptr(context).to_str();
+    match cont {
+        Ok(st) => {
+            return Hasher_shim::new_derive_key(st);
+        }
+        Err(_) => {
+            return Hasher_shim::new(); // It's an error, actually. Fix later.
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn reset_shim(hasher: &mut Hasher_shim) {
+    (*hasher.hasher).reset();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn update_shim(hasher: &mut Hasher_shim, input: *const c_char) {
+    assert!(!input.is_null());
+    let input_bytes = CStr::from_ptr(input);
+    let input_res = input_bytes.to_bytes();
+    (*hasher.hasher).update(input_res);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn count_shim(hasher: &mut Hasher_shim) -> u64 {
+    (*hasher.hasher).count()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn finalize_shim(hasher: &mut Hasher_shim) -> Hash {
+    (*hasher.hasher).finalize()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn finalize_xof_shim(hasher: &mut Hasher_shim) -> OutputReader {
+    (*hasher.hasher).finalize_xof()
+}
+
 // Don't derive(Debug), because the state may be secret.
 impl fmt::Debug for Hasher {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1354,6 +1485,7 @@ impl std::io::Write for Hasher {
 /// default-length output. (Note that this is different between BLAKE2
 /// and BLAKE3.)
 #[derive(Clone)]
+#[repr(C)]
 pub struct OutputReader {
     inner: Output,
     position_within_block: u8,
@@ -1406,6 +1538,7 @@ impl OutputReader {
     /// [`Seek::stream_position`]: #method.stream_position
     /// [`fill`]: #method.fill
     /// [`Read::read`]: #method.read
+    #[no_mangle]
     pub fn position(&self) -> u64 {
         self.inner.counter * BLOCK_LEN as u64 + self.position_within_block as u64
     }
@@ -1416,10 +1549,21 @@ impl OutputReader {
     ///
     /// [`Seek::seek`]: #method.seek
     /// [`SeekFrom::Start`]: https://doc.rust-lang.org/std/io/enum.SeekFrom.html
+    #[no_mangle]
     pub fn set_position(&mut self, position: u64) {
         self.position_within_block = (position % BLOCK_LEN as u64) as u8;
         self.inner.counter = position / BLOCK_LEN as u64;
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn fill_shim(reader: &mut OutputReader, count: u64) -> *mut u8 {
+    let mut bytes = vec![0; count as usize];
+    reader.fill(&mut bytes);
+    bytes.push(0u8);
+    let st = CString::from_vec_unchecked(bytes);
+    let pointer = st.into_raw() as *mut u8;
+    return pointer;
 }
 
 // Don't derive(Debug), because the state may be secret.

@@ -262,43 +262,55 @@ impl Hash {
     }
 }
 
+
+/// Returns char* if there are no errors
+/// If error occurres, returns a nullptr.
 #[no_mangle]
-pub extern "C" fn to_hex_shim(obj: &Hash) -> *const c_char {
+pub extern "C" fn to_hex_shim(obj: &Hash) -> *mut c_char {
     let hex_str = CString::new(obj.to_hex().as_str());
     match hex_str {
         Ok(c_str) => {
-            let ptr = c_str.as_ptr();
-            std::mem::forget(c_str);
+            let ptr = c_str.into_raw();
             ptr
         }
         Err(_) => {
-            return std::ptr::null();
+            return std::ptr::null_mut();
         }
     }
 }
 
-//kek
-
+/// Returns nullptr if there are no errors
+/// If error occurres, returns a char* with error message.
 #[no_mangle]
-pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -> bool {
+pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -> *mut c_char {
     if hex_str.is_null() {
-        *res = Hash([0u8; 32]);
-        return false;
+        let err_str = CString::new("input was a null pointer").unwrap();
+        return err_str.into_raw();
     }
     let hex_str_bytes = CStr::from_ptr(hex_str);
     let hash_res = Hash::from_hex(hex_str_bytes.to_bytes());
     match hash_res {
         Ok(obj) => {
             *res = Hash(*obj.as_bytes());
-            true
+            return std::ptr::null_mut();
         }
-        Err(_) => {
-            *res = Hash([0u8; 32]);
-            false
+        Err(e) => {
+            let err_str = CString::new(e.to_string());
+            match err_str {
+                Ok(s) => {
+                    return s.into_raw();
+                },
+                Err(_) => {
+                    // improbable error since error message is a regular string
+                    let err_str = CString::new("found invalid hex character").unwrap();
+                    return err_str.into_raw();
+                }
+            }
         }
     }
 }
 
+/// Returns uint8_t* with hash bytes.
 #[no_mangle]
 pub unsafe extern "C" fn as_bytes_shim(obj: &Hash) -> *mut u8 {
     let st = CString::from_vec_unchecked(obj.as_bytes().to_vec());
@@ -1357,6 +1369,7 @@ impl Hasher {
     }
 }
 
+/// A shim struct containing a pointer to actual Hasher
 #[repr(C)]
 pub struct Hasher_shim {
     hasher: *mut Hasher,
@@ -1388,52 +1401,80 @@ impl Hasher_shim {
     }
 }
 
+/// Creates a new hasher
 #[no_mangle]
 pub extern "C" fn new_hasher() -> Hasher_shim {
     Hasher_shim::new()
 }
 
+/// Creates a new hasher fore keyed hash function
 #[no_mangle]
 pub extern "C" fn new_keyed_shim(key: &[u8; KEY_LEN]) -> Hasher_shim {
     Hasher_shim::new_keyed(key)
 }
 
+#[repr(C)]
+pub struct DerivedOut {
+    hasher: Hasher_shim,
+    err: *mut c_char,
+}
+
+/// Creates a new hasher for key derivation. If creation is successful, returns {Hasher_shim, nullptr}.
+/// If error occurres, it will return Hasher_shim without a real hasher inside and error message as second field.
 #[no_mangle]
-pub unsafe extern "C" fn new_derive_key_shim(context: *const c_char) -> Hasher_shim {
+pub unsafe extern "C" fn new_derive_key_shim(context: *const c_char) -> DerivedOut {
     let cont = CStr::from_ptr(context).to_str();
     match cont {
         Ok(st) => {
-            return Hasher_shim::new_derive_key(st);
+            return DerivedOut{hasher: Hasher_shim::new_derive_key(st), err: std::ptr::null_mut()};
         }
-        Err(_) => {
-            return Hasher_shim::new(); // It's an error, actually. Fix later.
+        Err(e) => {
+            match CString::new(e.to_string()) {
+                Ok(s) => {
+                    return DerivedOut{hasher: Hasher_shim::new(), err: s.into_raw()};
+                }, 
+                Err(_) => {
+                    let err_str = CString::new("Cannot extract context from string").unwrap();
+                    return DerivedOut{hasher: Hasher_shim{hasher: std::ptr::null_mut()}, err: err_str.into_raw()};
+                }
+            }
         }
     }
 }
 
+/// Reset the Hasher contents
 #[no_mangle]
 pub unsafe extern "C" fn reset_shim(hasher: &mut Hasher_shim) {
     (*hasher.hasher).reset();
 }
 
+/// Give new input to hasher 
+/// Returns nullptr if everything is OK, returns an error message if input is nullptr.
 #[no_mangle]
-pub unsafe extern "C" fn update_shim(hasher: &mut Hasher_shim, input: *const c_char) {
-    assert!(!input.is_null());
+pub unsafe extern "C" fn update_shim(hasher: &mut Hasher_shim, input: *const c_char) -> *mut c_char{
+    if input.is_null() {
+        let err_str = CString::new("input was a null pointer").unwrap();
+        return err_str.into_raw();
+    }
     let input_bytes = CStr::from_ptr(input);
     let input_res = input_bytes.to_bytes();
     (*hasher.hasher).update(input_res);
+    std::ptr::null_mut()
 }
 
+/// Returns u64 number of hashed bytes
 #[no_mangle]
 pub unsafe extern "C" fn count_shim(hasher: &mut Hasher_shim) -> u64 {
     (*hasher.hasher).count()
 }
 
+/// Returns Hash struct containing hash
 #[no_mangle]
 pub unsafe extern "C" fn finalize_shim(hasher: &mut Hasher_shim) -> Hash {
     (*hasher.hasher).finalize()
 }
 
+/// Returns OutputReader struct for reading any number of bytes from hash.
 #[no_mangle]
 pub unsafe extern "C" fn finalize_xof_shim(hasher: &mut Hasher_shim) -> OutputReader {
     (*hasher.hasher).finalize_xof()

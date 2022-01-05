@@ -15,15 +15,25 @@ function(build_cargo target_name project_dir)
         OUTPUT ${output_library}
         WORKING_DIRECTORY ${project_dir})
 
-    if(NOT TARGET ${target_name})
-        add_custom_target(${target_name} ALL DEPENDS ${output_library})
+    if(NOT TARGET ${target_name}-target)
+        add_custom_target(${target_name}-target ALL DEPENDS ${output_library})
     endif()
 
     set_property(
-        TARGET ${target_name}
+        TARGET ${target_name}-target
         APPEND PROPERTY
             INTERFACE_DEPENDENCIES ${output_library}
     )
 
-    set_target_properties(${target_name} PROPERTIES LOCATION ${output_library})
+    set_target_properties(${target_name}-target PROPERTIES LOCATION ${output_library})
+    
+    add_library(${target_name} STATIC IMPORTED GLOBAL)
+    
+    add_dependencies(${target_name} ${target_name}-target)
+    
+    set_target_properties(${target_name}
+    	PROPERTIES
+    	IMPORTED_LOCATION ${output_library}
+    	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include/)
+    
 endfunction()

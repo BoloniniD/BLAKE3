@@ -1450,8 +1450,9 @@ pub unsafe extern "C" fn reset_shim(hasher: &mut Hasher_shim) {
 
 /// Give new input to hasher 
 /// Returns nullptr if everything is OK, returns an error message if input is nullptr.
+/// Size parameter was added for compatibility with FunctionsHashing.h
 #[no_mangle]
-pub unsafe extern "C" fn update_shim(hasher: &mut Hasher_shim, input: *const c_char) -> *mut c_char{
+pub unsafe extern "C" fn update_shim(hasher: &mut Hasher_shim, input: *const c_char, _size: u32) -> *mut c_char {
     if input.is_null() {
         let err_str = CString::new("input was a null pointer").unwrap();
         return err_str.into_raw();

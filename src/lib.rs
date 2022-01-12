@@ -262,7 +262,6 @@ impl Hash {
     }
 }
 
-
 /// Returns char* if there are no errors
 /// If error occurres, returns a nullptr.
 #[no_mangle]
@@ -312,9 +311,9 @@ pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -
 
 /// Returns uint8_t* with hash bytes.
 #[no_mangle]
-pub unsafe extern "C" fn as_bytes_shim(obj: &Hash) -> *mut u8 {
+pub unsafe extern "C" fn as_bytes_shim(obj: &Hash, ) -> *mut c_char {
     let st = CString::from_vec_unchecked(obj.as_bytes().to_vec());
-    let pointer = st.into_raw() as *mut u8;
+    let pointer = st.into_raw() as *mut c_char;
     return pointer;
 }
 
@@ -1367,6 +1366,18 @@ impl Hasher {
     pub fn count(&self) -> u64 {
         self.chunk_state.chunk_counter * CHUNK_LEN as u64 + self.chunk_state.len() as u64
     }
+}
+
+// Freeing memory according to docs: https://doc.rust-lang.org/std/ffi/struct.CString.html#method.into_raw
+#[no_mangle]
+pub unsafe extern "C" fn free_char_pointer(ptr_to_free: *mut c_char) {
+    std::mem::drop(CString::from_raw(ptr_to_free));
+}
+
+// Freeing memory according to docs: https://doc.rust-lang.org/std/ffi/struct.CString.html#method.into_raw
+#[no_mangle]
+pub unsafe extern "C" fn free_hasher(ptr_to_free: *mut Hasher) {
+    std::mem::drop(Box::from_raw(ptr_to_free));
 }
 
 /// A shim struct containing a pointer to actual Hasher

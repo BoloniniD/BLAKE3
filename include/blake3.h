@@ -134,12 +134,12 @@ struct DerivedOut {
 extern "C" {
 
 /// Returns uint8_t* with hash bytes.
-void as_bytes_shim(const Hash *obj, void *ptr);
+const uint8_t *as_bytes_shim(const Hash *obj);
 
 /// Returns u64 number of hashed bytes
 uint64_t count_shim(Hasher_shim *hasher);
 
-uint8_t *fill_shim(OutputReader *reader, uint64_t count);
+void fill_shim(OutputReader *reader, uint8_t *ptr);
 
 /// Returns Hash struct containing hash
 Hash finalize_shim(Hasher_shim *hasher);

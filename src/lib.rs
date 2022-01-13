@@ -123,7 +123,7 @@ use core::fmt;
 use platform::{Platform, MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2};
 
 use std::ffi::{CString, CStr};
-use libc::{c_char, c_void};
+use libc::{c_char};
 
 /// The number of bytes in a [`Hash`](struct.Hash.html), 32.
 pub const OUT_LEN: usize = 32;
@@ -311,8 +311,8 @@ pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -
 
 /// Returns uint8_t* with hash bytes.
 #[no_mangle]
-pub unsafe extern "C" fn as_bytes_shim(obj: &Hash, ptr: *mut c_void) {
-    libc::memcpy(ptr, obj.as_bytes().as_ptr() as *mut c_void, OUT_LEN);
+pub unsafe extern "C" fn as_bytes_shim(obj: &Hash) -> *const u8 {
+    obj.as_bytes().as_ptr()
 }
 
 impl From<[u8; OUT_LEN]> for Hash {
@@ -1608,13 +1608,8 @@ impl OutputReader {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn fill_shim(reader: &mut OutputReader, count: u64) -> *mut u8 {
-    let mut bytes = vec![0; count as usize];
-    reader.fill(&mut bytes);
-    bytes.push(0u8);
-    let st = CString::from_vec_unchecked(bytes);
-    let pointer = st.into_raw() as *mut u8;
-    return pointer;
+pub unsafe extern "C" fn fill_shim(reader: &mut OutputReader, ptr: *mut u8) {
+    reader.fill(std::slice::from_raw_parts_mut(ptr, OUT_LEN));
 }
 
 // Don't derive(Debug), because the state may be secret.

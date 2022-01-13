@@ -123,7 +123,7 @@ use core::fmt;
 use platform::{Platform, MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2};
 
 use std::ffi::{CString, CStr};
-use libc::c_char;
+use libc::{c_char, c_void};
 
 /// The number of bytes in a [`Hash`](struct.Hash.html), 32.
 pub const OUT_LEN: usize = 32;
@@ -311,10 +311,8 @@ pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -
 
 /// Returns uint8_t* with hash bytes.
 #[no_mangle]
-pub unsafe extern "C" fn as_bytes_shim(obj: &Hash, ) -> *mut c_char {
-    let st = CString::from_vec_unchecked(obj.as_bytes().to_vec());
-    let pointer = st.into_raw() as *mut c_char;
-    return pointer;
+pub unsafe extern "C" fn as_bytes_shim(obj: &Hash, ptr: *mut c_void) {
+    libc::memcpy(ptr, obj.as_bytes().as_ptr() as *mut c_void, OUT_LEN);
 }
 
 impl From<[u8; OUT_LEN]> for Hash {
@@ -1374,7 +1372,7 @@ pub unsafe extern "C" fn free_char_pointer(ptr_to_free: *mut c_char) {
     std::mem::drop(CString::from_raw(ptr_to_free));
 }
 
-// Freeing memory according to docs: https://doc.rust-lang.org/std/ffi/struct.CString.html#method.into_raw
+// Freeing memory according to docs: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.into_raw
 #[no_mangle]
 pub unsafe extern "C" fn free_hasher(ptr_to_free: *mut Hasher) {
     std::mem::drop(Box::from_raw(ptr_to_free));

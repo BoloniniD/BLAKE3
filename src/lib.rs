@@ -955,6 +955,21 @@ fn parent_node_output(
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn blake3_apply_shim(begin: *const c_char, _size: u32, out_char_data: *mut u8) -> *mut c_char {
+    let mut hasher = Hasher::new();
+    if begin.is_null() {
+        let err_str = CString::new("input was a null pointer").unwrap();
+        return err_str.into_raw();
+    }
+    let input_bytes = CStr::from_ptr(begin);
+    let input_res = input_bytes.to_bytes();
+    hasher.update(input_res);
+    let mut reader = hasher.finalize_xof();
+    reader.fill(std::slice::from_raw_parts_mut(out_char_data, OUT_LEN));
+    std::ptr::null_mut()
+}
+
 /// An incremental hash state that can accept any number of writes.
 ///
 /// When the `traits-preview` Cargo feature is enabled, this type implements
@@ -1368,13 +1383,13 @@ impl Hasher {
 
 // Freeing memory according to docs: https://doc.rust-lang.org/std/ffi/struct.CString.html#method.into_raw
 #[no_mangle]
-pub unsafe extern "C" fn free_char_pointer(ptr_to_free: *mut c_char) {
+pub unsafe extern "C" fn blake3_free_char_pointer(ptr_to_free: *mut c_char) {
     std::mem::drop(CString::from_raw(ptr_to_free));
 }
 
 // Freeing memory according to docs: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.into_raw
 #[no_mangle]
-pub unsafe extern "C" fn free_hasher(ptr_to_free: *mut Hasher) {
+pub unsafe extern "C" fn blake3_free_hasher(ptr_to_free: *mut Hasher) {
     std::mem::drop(Box::from_raw(ptr_to_free));
 }
 

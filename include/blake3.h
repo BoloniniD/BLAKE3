@@ -25,10 +25,9 @@ enum class Platform {
 ///
 /// When the `traits-preview` Cargo feature is enabled, this type implements
 /// several commonly used traits from the
-/// [`digest`](https://crates.io/crates/digest) and
-/// [`crypto_mac`](https://crates.io/crates/crypto-mac) crates. However, those
+/// [`digest`](https://crates.io/crates/digest) crate. However, those
 /// traits aren't stable, and they're expected to change in incompatible ways
-/// before those crates reach 1.0. For that reason, this crate makes no SemVer
+/// before that crate reaches 1.0. For that reason, this crate makes no SemVer
 /// guarantees for this feature, and callers who use it should expect breaking
 /// changes between patch versions.
 ///
@@ -136,6 +135,15 @@ extern "C" {
 /// Returns uint8_t* with hash bytes.
 const uint8_t *as_bytes_shim(const Hash *obj);
 
+char *blake3_apply_shim(Hasher_shim *hasher,
+                        const char *begin,
+                        uint32_t size,
+                        uint8_t *out_char_data);
+
+void blake3_free_char_pointer(char *ptr_to_free);
+
+void blake3_free_hasher(Hasher *ptr_to_free);
+
 /// Returns u64 number of hashed bytes
 uint64_t count_shim(Hasher_shim *hasher);
 
@@ -146,10 +154,6 @@ Hash finalize_shim(Hasher_shim *hasher);
 
 /// Returns OutputReader struct for reading any number of bytes from hash.
 OutputReader finalize_xof_shim(Hasher_shim *hasher);
-
-void free_char_pointer(char *ptr_to_free);
-
-void free_hasher(Hasher *ptr_to_free);
 
 /// Returns nullptr if there are no errors
 /// If error occurres, returns a char* with error message.

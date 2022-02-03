@@ -135,10 +135,7 @@ extern "C" {
 /// Returns uint8_t* with hash bytes.
 const uint8_t *as_bytes_shim(const Hash *obj);
 
-char *blake3_apply_shim(Hasher_shim *hasher,
-                        const char *begin,
-                        uint32_t size,
-                        uint8_t *out_char_data);
+char *blake3_apply_shim(const char *begin, uint32_t _size, uint8_t *out_char_data);
 
 void blake3_free_char_pointer(char *ptr_to_free);
 

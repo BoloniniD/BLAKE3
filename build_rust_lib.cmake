@@ -27,11 +27,11 @@ function(build_cargo target_name project_dir)
 
     set_target_properties(${target_name}-target PROPERTIES LOCATION ${output_library})
     
-    add_library(${target_name} STATIC IMPORTED GLOBAL)
+    add_library(ch_contrib::${target_name} STATIC IMPORTED GLOBAL)
     
-    add_dependencies(${target_name} ${target_name}-target)
+    add_dependencies(ch_contrib::${target_name} ${target_name}-target)
     
-    set_target_properties(${target_name}
+    set_target_properties(ch_contrib::${target_name}
     	PROPERTIES
     	IMPORTED_LOCATION ${output_library}
     	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include/)

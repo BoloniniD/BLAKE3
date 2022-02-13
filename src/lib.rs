@@ -262,59 +262,6 @@ impl Hash {
     }
 }
 
-/// Returns char* if there are no errors
-/// If error occurres, returns a nullptr.
-#[no_mangle]
-pub extern "C" fn to_hex_shim(obj: &Hash) -> *mut c_char {
-    let hex_str = CString::new(obj.to_hex().as_str());
-    match hex_str {
-        Ok(c_str) => {
-            let ptr = c_str.into_raw();
-            ptr
-        }
-        Err(_) => {
-            return std::ptr::null_mut();
-        }
-    }
-}
-
-/// Returns nullptr if there are no errors
-/// If error occurres, returns a char* with error message.
-#[no_mangle]
-pub unsafe extern "C" fn from_hex_shim(hex_str: *const c_char, res: &mut Hash) -> *mut c_char {
-    if hex_str.is_null() {
-        let err_str = CString::new("input was a null pointer").unwrap();
-        return err_str.into_raw();
-    }
-    let hex_str_bytes = CStr::from_ptr(hex_str);
-    let hash_res = Hash::from_hex(hex_str_bytes.to_bytes());
-    match hash_res {
-        Ok(obj) => {
-            *res = Hash(*obj.as_bytes());
-            return std::ptr::null_mut();
-        }
-        Err(e) => {
-            let err_str = CString::new(e.to_string());
-            match err_str {
-                Ok(s) => {
-                    return s.into_raw();
-                },
-                Err(_) => {
-                    // improbable error since error message is a regular string
-                    let err_str = CString::new("found invalid hex character").unwrap();
-                    return err_str.into_raw();
-                }
-            }
-        }
-    }
-}
-
-/// Returns uint8_t* with hash bytes.
-#[no_mangle]
-pub unsafe extern "C" fn as_bytes_shim(obj: &Hash) -> *const u8 {
-    obj.as_bytes().as_ptr()
-}
-
 impl From<[u8; OUT_LEN]> for Hash {
     #[inline]
     fn from(bytes: [u8; OUT_LEN]) -> Self {
@@ -958,12 +905,31 @@ fn parent_node_output(
 #[no_mangle]
 pub unsafe extern "C" fn blake3_apply_shim(begin: *const c_char, _size: u32, out_char_data: *mut u8) -> *mut c_char {
     let mut hasher = Hasher::new();
-    if begin.is_null() {
+    if false {
         let err_str = CString::new("input was a null pointer").unwrap();
         return err_str.into_raw();
     }
     let input_bytes = CStr::from_ptr(begin);
     let input_res = input_bytes.to_bytes();
+    hasher.update(input_res);
+    let mut reader = hasher.finalize_xof();
+    reader.fill(std::slice::from_raw_parts_mut(out_char_data, OUT_LEN));
+    std::ptr::null_mut()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn blake3_apply_shim_msan_compat(mut begin: *const c_char, size: u32, out_char_data: *mut u8) -> *mut c_char {
+    let mut hasher = Hasher::new();
+    if false {
+        let err_str = CString::new("input was a null pointer").unwrap();
+        return err_str.into_raw();
+    }
+    let mut vec = Vec::<u8>::new();
+    for _ in 0..size {
+        vec.push(*begin as u8);
+        begin = begin.add(1);
+    }
+    let input_res = vec.as_mut_slice();
     hasher.update(input_res);
     let mut reader = hasher.finalize_xof();
     reader.fill(std::slice::from_raw_parts_mut(out_char_data, OUT_LEN));
@@ -1393,118 +1359,6 @@ pub unsafe extern "C" fn blake3_free_hasher(ptr_to_free: *mut Hasher) {
     std::mem::drop(Box::from_raw(ptr_to_free));
 }
 
-/// A shim struct containing a pointer to actual Hasher
-#[repr(C)]
-pub struct Hasher_shim {
-    hasher: *mut Hasher,
-}
-
-impl Hasher_shim {
-    pub fn new() -> Self {
-        let boxed_hasher = Box::new(Hasher::new());
-        let shim = Hasher_shim {
-            hasher: Box::into_raw(boxed_hasher),
-        };
-        shim
-    }
-
-    pub fn new_keyed(key: &[u8; KEY_LEN]) -> Self {
-        let boxed_hasher = Box::new(Hasher::new_keyed(key));
-        let shim = Hasher_shim {
-            hasher: Box::into_raw(boxed_hasher),
-        };
-        shim
-    }
-
-    pub fn new_derive_key(context: &str) -> Self {
-        let boxed_hasher = Box::new(Hasher::new_derive_key(context));
-        let shim = Hasher_shim {
-            hasher: Box::into_raw(boxed_hasher),
-        };
-        shim
-    }
-}
-
-/// Creates a new hasher
-#[no_mangle]
-pub extern "C" fn new_hasher() -> Hasher_shim {
-    Hasher_shim::new()
-}
-
-/// Creates a new hasher fore keyed hash function
-#[no_mangle]
-pub extern "C" fn new_keyed_shim(key: &[u8; KEY_LEN]) -> Hasher_shim {
-    Hasher_shim::new_keyed(key)
-}
-
-#[repr(C)]
-pub struct DerivedOut {
-    hasher: Hasher_shim,
-    err: *mut c_char,
-}
-
-/// Creates a new hasher for key derivation. If creation is successful, returns {Hasher_shim, nullptr}.
-/// If error occurres, it will return Hasher_shim without a real hasher inside and error message as second field.
-#[no_mangle]
-pub unsafe extern "C" fn new_derive_key_shim(context: *const c_char) -> DerivedOut {
-    let cont = CStr::from_ptr(context).to_str();
-    match cont {
-        Ok(st) => {
-            return DerivedOut{hasher: Hasher_shim::new_derive_key(st), err: std::ptr::null_mut()};
-        }
-        Err(e) => {
-            match CString::new(e.to_string()) {
-                Ok(s) => {
-                    return DerivedOut{hasher: Hasher_shim::new(), err: s.into_raw()};
-                }, 
-                Err(_) => {
-                    let err_str = CString::new("Cannot extract context from string").unwrap();
-                    return DerivedOut{hasher: Hasher_shim{hasher: std::ptr::null_mut()}, err: err_str.into_raw()};
-                }
-            }
-        }
-    }
-}
-
-/// Reset the Hasher contents
-#[no_mangle]
-pub unsafe extern "C" fn reset_shim(hasher: &mut Hasher_shim) {
-    (*hasher.hasher).reset();
-}
-
-/// Give new input to hasher 
-/// Returns nullptr if everything is OK, returns an error message if input is nullptr.
-/// Size parameter was added for compatibility with FunctionsHashing.h
-#[no_mangle]
-pub unsafe extern "C" fn update_shim(hasher: &mut Hasher_shim, input: *const c_char, _size: u32) -> *mut c_char {
-    if input.is_null() {
-        let err_str = CString::new("input was a null pointer").unwrap();
-        return err_str.into_raw();
-    }
-    let input_bytes = CStr::from_ptr(input);
-    let input_res = input_bytes.to_bytes();
-    (*hasher.hasher).update(input_res);
-    std::ptr::null_mut()
-}
-
-/// Returns u64 number of hashed bytes
-#[no_mangle]
-pub unsafe extern "C" fn count_shim(hasher: &mut Hasher_shim) -> u64 {
-    (*hasher.hasher).count()
-}
-
-/// Returns Hash struct containing hash
-#[no_mangle]
-pub unsafe extern "C" fn finalize_shim(hasher: &mut Hasher_shim) -> Hash {
-    (*hasher.hasher).finalize()
-}
-
-/// Returns OutputReader struct for reading any number of bytes from hash.
-#[no_mangle]
-pub unsafe extern "C" fn finalize_xof_shim(hasher: &mut Hasher_shim) -> OutputReader {
-    (*hasher.hasher).finalize_xof()
-}
-
 // Don't derive(Debug), because the state may be secret.
 impl fmt::Debug for Hasher {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1620,11 +1474,6 @@ impl OutputReader {
         self.position_within_block = (position % BLOCK_LEN as u64) as u8;
         self.inner.counter = position / BLOCK_LEN as u64;
     }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn fill_shim(reader: &mut OutputReader, ptr: *mut u8) {
-    reader.fill(std::slice::from_raw_parts_mut(ptr, OUT_LEN));
 }
 
 // Don't derive(Debug), because the state may be secret.

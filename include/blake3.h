@@ -12,15 +12,6 @@ static const size_t KEY_LEN = 32;
 /// The number of bytes in a [`Hash`](struct.Hash.html), 32.
 static const size_t OUT_LEN = 32;
 
-enum class Platform {
-  Portable,
-  SSE2,
-  SSE41,
-  AVX2,
-  AVX512,
-  NEON,
-};
-
 /// An incremental hash state that can accept any number of writes.
 ///
 /// When the `traits-preview` Cargo feature is enabled, this type implements
@@ -90,92 +81,13 @@ struct Hash {
   uint8_t _0[OUT_LEN];
 };
 
-/// A shim struct containing a pointer to actual Hasher
-struct Hasher_shim {
-  Hasher *hasher;
-};
-
-using CVWords = uint32_t[8];
-
-struct Output {
-  CVWords input_chaining_value;
-  uint8_t block[64];
-  uint8_t block_len;
-  uint64_t counter;
-  uint8_t flags;
-  Platform platform;
-};
-
-/// An incremental reader for extended output, returned by
-/// [`Hasher::finalize_xof`](struct.Hasher.html#method.finalize_xof).
-///
-/// Outputs shorter than the default length of 32 bytes (256 bits)
-/// provide less security. An N-bit BLAKE3 output is intended to provide
-/// N bits of first and second preimage resistance and N/2 bits of
-/// collision resistance, for any N up to 256. Longer outputs don't
-/// provide any additional security.
-///
-/// Shorter BLAKE3 outputs are prefixes of longer ones. Explicitly
-/// requesting a short output is equivalent to truncating the
-/// default-length output. (Note that this is different between BLAKE2
-/// and BLAKE3.)
-struct OutputReader {
-  Output inner;
-  uint8_t position_within_block;
-};
-
-struct DerivedOut {
-  Hasher_shim hasher;
-  char *err;
-};
-
 
 extern "C" {
 
-/// Returns uint8_t* with hash bytes.
-const uint8_t *as_bytes_shim(const Hash *obj);
-
-char *blake3_apply_shim(const char *begin, uint32_t _size, uint8_t *out_char_data);
+char *blake3_apply_shim(const char *begin, uint32_t size, uint8_t *out_char_data);
 
 void blake3_free_char_pointer(char *ptr_to_free);
 
 void blake3_free_hasher(Hasher *ptr_to_free);
-
-/// Returns u64 number of hashed bytes
-uint64_t count_shim(Hasher_shim *hasher);
-
-void fill_shim(OutputReader *reader, uint8_t *ptr);
-
-/// Returns Hash struct containing hash
-Hash finalize_shim(Hasher_shim *hasher);
-
-/// Returns OutputReader struct for reading any number of bytes from hash.
-OutputReader finalize_xof_shim(Hasher_shim *hasher);
-
-/// Returns nullptr if there are no errors
-/// If error occurres, returns a char* with error message.
-char *from_hex_shim(const char *hex_str, Hash *res);
-
-/// Creates a new hasher for key derivation. If creation is successful, returns {Hasher_shim, nullptr}.
-/// If error occurres, it will return Hasher_shim without a real hasher inside and error message as second field.
-DerivedOut new_derive_key_shim(const char *context);
-
-/// Creates a new hasher
-Hasher_shim new_hasher();
-
-/// Creates a new hasher fore keyed hash function
-Hasher_shim new_keyed_shim(const uint8_t (*key)[KEY_LEN]);
-
-/// Reset the Hasher contents
-void reset_shim(Hasher_shim *hasher);
-
-/// Returns char* if there are no errors
-/// If error occurres, returns a nullptr.
-char *to_hex_shim(const Hash *obj);
-
-/// Give new input to hasher
-/// Returns nullptr if everything is OK, returns an error message if input is nullptr.
-/// Size parameter was added for compatibility with FunctionsHashing.h
-char *update_shim(Hasher_shim *hasher, const char *input, uint32_t _size);
 
 } // extern "C"

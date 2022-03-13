@@ -7,10 +7,15 @@ function(build_cargo target_name project_dir)
     if(CARGO_RELEASE_FLAG STREQUAL "--release")
         set(compile_message "${compile_message} in release mode")
     endif()
+    
+    set(TARGET_SPEC "")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64-linux-gnu")
+        set(TARGET_SPEC "--target=aarch64-unknown-linux-gnu")
+    endif()
 
     add_custom_command(
         COMMENT ${compile_message}
-        COMMAND env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} cargo build ${CARGO_RELEASE_FLAG}
+        COMMAND env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} cargo build ${CARGO_RELEASE_FLAG} ${TARGET_SPEC}
         COMMAND cp ${output_library} ${CMAKE_CURRENT_BINARY_DIR}
         OUTPUT ${output_library}
         WORKING_DIRECTORY ${project_dir})

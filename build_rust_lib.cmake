@@ -1,5 +1,4 @@
 function(build_cargo target_name project_dir)
-    set(output_library ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/lib${target_name}.a)
     file(GLOB sources ${project_dir}/src/**/*.rs)
 
     set(compile_message "Compiling ${target_name}")
@@ -9,8 +8,17 @@ function(build_cargo target_name project_dir)
     endif()
     
     set(TARGET_SPEC "")
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64-linux-gnu")
-        set(TARGET_SPEC "--target=aarch64-unknown-linux-gnu")
+    if(CMAKE_TOOLCHAIN_FILE STREQUAL "cmake/linux/toolchain-aarch64.cmake")
+        set(TARGET_SPEC "aarch64-unknown-linux-gnu")
+        set(compile_message "${compile_message} in release mode for target {$TARGET_SPEC}")
+    endif()
+
+    set(output_library ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_SPEC}/${TARGET_DIR}/lib${target_name}.a)
+
+    set(TARGET_SPEC "--target=${TARGET_SPEC}")
+
+    if(TARGET_SPEC STREQUAL "--target=")
+        set(TARGET_SPEC "")
     endif()
 
     add_custom_command(
@@ -42,3 +50,4 @@ function(build_cargo target_name project_dir)
     	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include/)
     
 endfunction()
+

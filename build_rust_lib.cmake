@@ -9,10 +9,11 @@ function(build_cargo target_name project_dir)
     
     set(TARGET_SPEC "")
 
-    SET(TOOLCHAIN_FLAG -1)
     message(STATUS "Toolchain file for ${target_name}: ${CMAKE_TOOLCHAIN_FILE}")
     if(CMAKE_TOOLCHAIN_FILE MATCHES "toolchain-aarch64")
         set(TARGET_SPEC "aarch64-unknown-linux-gnu")
+        message("Checking Rust toolchain for special target")
+        execute_process(COMMAND rustup target add aarch64-unknown-linux-gnu)
         message(STATUS "Switch Rust target to ${TARGET_SPEC}")
         set(compile_message "${compile_message} for special target ${TARGET_SPEC}")
     endif()

@@ -8,9 +8,13 @@ function(build_cargo target_name project_dir)
     endif()
     
     set(TARGET_SPEC "")
-    if(CMAKE_TOOLCHAIN_FILE STREQUAL "cmake/linux/toolchain-aarch64.cmake")
+
+    SET(TOOLCHAIN_FLAG -1)
+    message(STATUS "Toolchain file for ${target_name}: ${CMAKE_TOOLCHAIN_FILE}")
+    if(CMAKE_TOOLCHAIN_FILE MATCHES "toolchain-aarch64")
         set(TARGET_SPEC "aarch64-unknown-linux-gnu")
-        set(compile_message "${compile_message} in release mode for target {$TARGET_SPEC}")
+        message(STATUS "Switch Rust target to ${TARGET_SPEC}")
+        set(compile_message "${compile_message} for special target ${TARGET_SPEC}")
     endif()
 
     set(output_library ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_SPEC}/${TARGET_DIR}/lib${target_name}.a)
@@ -50,4 +54,5 @@ function(build_cargo target_name project_dir)
     	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include/)
     
 endfunction()
+
 

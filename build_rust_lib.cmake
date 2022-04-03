@@ -6,7 +6,7 @@ function(build_cargo target_name project_dir)
     if(CARGO_RELEASE_FLAG STREQUAL "--release")
         set(compile_message "${compile_message} in release mode")
     endif()
-    
+
     set(TARGET_SPEC "")
 
     message(STATUS "Toolchain file for ${target_name}: ${CMAKE_TOOLCHAIN_FILE}")
@@ -61,7 +61,7 @@ function(build_cargo target_name project_dir)
 
     add_custom_command(
         COMMENT ${compile_message}
-        COMMAND env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} cargo build -vv ${CARGO_RELEASE_FLAG} ${TARGET_SPEC}
+        COMMAND env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} cargo rustc -v ${CARGO_RELEASE_FLAG} ${TARGET_SPEC}
         COMMAND cp ${output_library} ${CMAKE_CURRENT_BINARY_DIR}
         OUTPUT ${output_library}
         WORKING_DIRECTORY ${project_dir})
@@ -77,16 +77,16 @@ function(build_cargo target_name project_dir)
     )
 
     set_target_properties(${target_name}-target PROPERTIES LOCATION ${output_library})
-    
+
     add_library(ch_contrib::${target_name} STATIC IMPORTED GLOBAL)
-    
+
     add_dependencies(ch_contrib::${target_name} ${target_name}-target)
-    
+
     set_target_properties(ch_contrib::${target_name}
     	PROPERTIES
     	IMPORTED_LOCATION ${output_library}
     	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include/)
-    
+
 endfunction()
 
 

@@ -24,6 +24,7 @@ function(build_cargo target_name project_dir)
         execute_process(COMMAND rustup target add aarch64-apple-darwin)
         message(STATUS "Switch Rust target to ${TARGET_SPEC}")
         set(compile_message "${compile_message} for special target ${TARGET_SPEC}")
+        set(ENV{BUILD_FOR_OSX} "${CMAKE_OSX_SYSROOT}")
     endif()
 
     if((CMAKE_TOOLCHAIN_FILE MATCHES "darwin") AND (CMAKE_TOOLCHAIN_FILE MATCHES "x86_64"))
@@ -60,7 +61,7 @@ function(build_cargo target_name project_dir)
 
     add_custom_command(
         COMMENT ${compile_message}
-        COMMAND env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} cargo rustc ${CARGO_RELEASE_FLAG} ${TARGET_SPEC}
+        COMMAND env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} cargo build -vv ${CARGO_RELEASE_FLAG} ${TARGET_SPEC}
         COMMAND cp ${output_library} ${CMAKE_CURRENT_BINARY_DIR}
         OUTPUT ${output_library}
         WORKING_DIRECTORY ${project_dir})

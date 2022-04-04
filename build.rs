@@ -1,6 +1,7 @@
 extern crate cbindgen;
 
 use std::env;
+use std::path::Path;
 
 fn defined(var: &str) -> bool {
     println!("cargo:rerun-if-env-changed={}", var);
@@ -9,6 +10,11 @@ fn defined(var: &str) -> bool {
 
 fn is_pure() -> bool {
     defined("CARGO_FEATURE_PURE")
+}
+
+fn is_darwin() -> bool {
+    println!("Building for aarch64-darwin target");
+    defined("BUILD_FOR_OSX")
 }
 
 fn should_prefer_intrinsics() -> bool {
@@ -82,6 +88,12 @@ fn is_windows_gnu() -> bool {
 
 fn new_build() -> cc::Build {
     let mut build = cc::Build::new();
+    if is_darwin() {
+        let path = env::var_os("BUILD_FOR_OSX").unwrap().to_str().unwrap().to_owned();
+        println!("{}", format!("Cargo will search for headers in ../{}/usr/include", path));
+        println!("Current dir: {}", std::env::current_dir().unwrap().into_os_string().to_str().unwrap());
+        build.include(Path::new(&("../".to_owned() + &path + "/usr/include")));
+    }
     if !is_windows_msvc() {
         build.flag("-std=c11");
     }

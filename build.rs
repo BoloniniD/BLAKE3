@@ -88,12 +88,34 @@ fn is_windows_gnu() -> bool {
 
 fn new_build() -> cc::Build {
     let mut build = cc::Build::new();
-    if is_darwin() {
-        let path = env::var_os("BUILD_FOR_OSX").unwrap().to_str().unwrap().to_owned();
-        println!("{}", format!("Cargo will search for headers in ../{}/usr/include", path));
-        println!("Current dir: {}", std::env::current_dir().unwrap().into_os_string().to_str().unwrap());
-        build.include(Path::new(&("../../../".to_owned() + &path + "/usr/include")));
-        build.target("arm64-apple-darwin");
+    if env::var_os("BUILD_FOR_OSX").is_some() {
+        let path = env::var_os("BUILD_FOR_OSX").unwrap();
+        if path.to_str().unwrap() != "" {
+            let path = env::var_os("BUILD_FOR_OSX")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
+            println!(
+                "{}",
+                format!(
+                    "Cargo will search for headers in ../../../{}/usr/include",
+                    path
+                )
+            );
+            println!(
+                "Current dir: {}",
+                std::env::current_dir()
+                    .unwrap()
+                    .into_os_string()
+                    .to_str()
+                    .unwrap()
+            );
+            build.include(Path::new(
+                &("../../../".to_owned() + &path + "/usr/include"),
+            ));
+            build.target("aarch64-apple-darwin");
+        }
     }
     if !is_windows_msvc() {
         build.flag("-std=c11");
@@ -296,7 +318,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cbindgen::generate(&crate_dir) {
         Ok(header) => {
             header.write_to_file(&output_file);
-        },
+        }
         Err(err) => {
             panic!("{}", err)
         }

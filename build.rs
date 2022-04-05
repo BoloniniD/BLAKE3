@@ -92,7 +92,8 @@ fn new_build() -> cc::Build {
         let path = env::var_os("BUILD_FOR_OSX").unwrap().to_str().unwrap().to_owned();
         println!("{}", format!("Cargo will search for headers in ../{}/usr/include", path));
         println!("Current dir: {}", std::env::current_dir().unwrap().into_os_string().to_str().unwrap());
-        build.include(Path::new(&("../".to_owned() + &path + "/usr/include")));
+        build.include(Path::new(&("../../../".to_owned() + &path + "/usr/include")));
+        build.target("arm64-apple-darwin");
     }
     if !is_windows_msvc() {
         build.flag("-std=c11");

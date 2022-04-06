@@ -114,7 +114,6 @@ fn new_build() -> cc::Build {
             build.include(Path::new(
                 &("../../../".to_owned() + &path + "/usr/include"),
             ));
-            build.target("aarch64-apple-darwin");
         }
     }
     if !is_windows_msvc() {
@@ -255,6 +254,36 @@ fn build_neon_c_intrinsics() {
     build.file("c/blake3_neon.c");
     // ARMv7 platforms that support NEON generally need the following
     // flags. AArch64 supports NEON by default and does not support -mpfu.
+
+    /*if env::var_os("BUILD_FOR_OSX").is_some() {
+        let path = env::var_os("BUILD_FOR_OSX").unwrap();
+        if path.to_str().unwrap() != "" {
+            let mut cmd = Command::new("cc")
+                .arg("-O0")
+                .arg("-ffunction-sections")
+                .arg("-fdata-sections")
+                .arg("-fPIC")
+                .arg("-g")
+                .arg("-fno-omit-frame-pointer")
+                .arg("-arch")
+                .arg("aarch64")
+                .arg("-Wall")
+                .arg("-Wextra")
+                .arg("-std=c11")
+                .arg("-o")
+                .arg("")
+                .arg("");
+        }
+        return;
+    }*/
+    if env::var_os("BUILD_FOR_OSX").is_some() {
+        let path = env::var_os("BUILD_FOR_OSX").unwrap();
+        if path.to_str().unwrap() != "" {
+            build.target("aarch64-apple-darwin");
+            build.compile("blake3_neon");
+            return;
+        }
+    }
     if is_armv7() {
         build.flag("-mfpu=neon-vfpv4");
         build.flag("-mfloat-abi=hard");

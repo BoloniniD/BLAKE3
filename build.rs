@@ -258,21 +258,23 @@ fn build_neon_c_intrinsics() {
     if env::var_os("BUILD_FOR_OSX").is_some() {
         let path = env::var_os("BUILD_FOR_OSX").unwrap();
         if path.to_str().unwrap() != "" {
-            let mut cmd = Command::new("cc");
+            
             let comp = build.get_compiler();
             let comp_cmd = comp.to_command();
             let args = comp_cmd.get_args();
-            let dest = "";
+            let mut cmd = Command::new(comp_cmd.get_program().to_str().unwrap());
             for i in args {
                 let s = i.to_str().unwrap().to_owned();
                 if (!s.starts_with("--target")) {
                     println!("PASSING {}", s);
                     cmd.arg(&s);
                 } else {
-                    println!("SWITCHING --target=aarch64-apple-darwin");
-                    cmd.arg("--target=arm64-apple-darwin");
+                    println!("SWITCHING --target to aarch64-apple-darwin");
+                    cmd.arg("--target=aarch64-apple-darwin");
                 }
             }
+            cmd.arg("-c");
+            cmd.arg("c/blake3_neon.c");
             cmd.spawn();
             return;
         }

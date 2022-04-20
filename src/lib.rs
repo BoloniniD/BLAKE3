@@ -122,8 +122,8 @@ use core::cmp;
 use core::fmt;
 use platform::{Platform, MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2};
 
-use std::ffi::{CString, CStr};
-use libc::{c_char};
+use libc::c_char;
+use std::ffi::{CStr, CString};
 
 /// The number of bytes in a [`Hash`](struct.Hash.html), 32.
 pub const OUT_LEN: usize = 32;
@@ -903,12 +903,16 @@ fn parent_node_output(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn blake3_apply_shim(begin: *const c_char, _size: u32, out_char_data: *mut u8) -> *mut c_char {
-    let mut hasher = Hasher::new();
-    if false {
+pub unsafe extern "C" fn blake3_apply_shim(
+    begin: *const c_char,
+    _size: u32,
+    out_char_data: *mut u8,
+) -> *mut c_char {
+    if begin.is_null() {
         let err_str = CString::new("input was a null pointer").unwrap();
         return err_str.into_raw();
     }
+    let mut hasher = Hasher::new();
     let input_bytes = CStr::from_ptr(begin);
     let input_res = input_bytes.to_bytes();
     hasher.update(input_res);
@@ -918,12 +922,16 @@ pub unsafe extern "C" fn blake3_apply_shim(begin: *const c_char, _size: u32, out
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn blake3_apply_shim_msan_compat(mut begin: *const c_char, size: u32, out_char_data: *mut u8) -> *mut c_char {
-    let mut hasher = Hasher::new();
-    if false {
+pub unsafe extern "C" fn blake3_apply_shim_msan_compat(
+    mut begin: *const c_char,
+    size: u32,
+    out_char_data: *mut u8,
+) -> *mut c_char {
+    if begin.is_null() {
         let err_str = CString::new("input was a null pointer").unwrap();
         return err_str.into_raw();
     }
+    let mut hasher = Hasher::new();
     let mut vec = Vec::<u8>::new();
     for _ in 0..size {
         vec.push(*begin as u8);

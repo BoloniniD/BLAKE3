@@ -265,8 +265,8 @@ fn build_neon_c_intrinsics() {
             let mut cmd = Command::new(comp_cmd.get_program().to_str().unwrap());
             for i in args {
                 let s = i.to_str().unwrap().to_owned();
-                if (!s.starts_with("--target")) {
-                    println!("PASSING {}", s);
+                if !s.starts_with("--target") {
+                    println!("PASSING {}", s); //aarch64-apple-darwin-ar
                     cmd.arg(&s);
                 } else {
                     println!("SWITCHING --target to aarch64-apple-darwin");

@@ -11,8 +11,6 @@ function(build_cargo target_name project_dir)
 
     set(OSX_RUST_ROOT "")
 
-    execute_process(COMMAND rustup target add x86_64-unknown-linux-musl)
-
     message(STATUS "Toolchain file for ${target_name}: ${CMAKE_TOOLCHAIN_FILE}")
     if(CMAKE_TOOLCHAIN_FILE MATCHES "linux/toolchain-aarch64")
         set(TARGET_SPEC "aarch64-unknown-linux-gnu")
